@@ -1,4 +1,5 @@
 const program = require('commander');
+const { type } = require('os');
 const restify = require('restify-clients');
 const util = require('util');
 
@@ -54,6 +55,7 @@ program.option("-p, --port <port>", "Port number for user server, if using local
     .option("-h, --host <host>", "Host number for user server, if using localhost")
     .option("-u, --url <url>", "Connection URL for user server, if using a remote server");
 
+// subcommand to add a new user
 program
     .command("add <username>")
     .description("Add a user to the user server")
@@ -80,6 +82,39 @@ program
                 console.error(err.stack);
             } else {
                 console.log("Created " + util.inspect(obj));
+            }
+        })
+    })
+
+// subcommand to find or create a user
+program
+    .command("find-or-create <username>")
+    .description("Add a user to the user server")
+    .option("--password <password>", "Password for new user")
+    .option("--family-name <familyName", "Family name, or last name of the user")
+    .option("--given-name <givenName>", "Given name, or first name of the user")
+    .option("--middle-name <middleName>", "Middle name of the user")
+    .option("--email <email>", "Email address for the user")
+    .action((username, cmdObj) => {
+        const topost = {
+            username, 
+            password: cmdObj.password,
+            provider: "local",
+            familyName: cmdObj.familyName,
+            givenName: cmdObj.givenName,
+            middleName: cmdObj.middleName,
+            emails: [],
+            photos: []
+        };
+        if (typeof cmdObj.email !== 'undefined') {
+            topost.emails.push(cmdObj.email);
+        }
+        // 获取REST服务器的连接，然后对该URL发送POST请求，携带topost数据，在callback中处理结果
+        client(program).post("/find-or-create", topost, (err, req, res, obj) => {
+            if (err) {
+                console.error(err.stack);
+            } else {
+                console.log("Found or Created " + util.inspect(obj));
             }
         })
     })

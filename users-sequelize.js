@@ -1,3 +1,5 @@
+// DAO of User managed by Sequelize in SQLite3
+
 const Sequenlize = require('sequelize');
 const jsyaml = require('js-yaml');
 const fs = require('fs').promises;
@@ -112,9 +114,12 @@ const sanitizedUser = user => {
 }
 
 const findOneUser = async (username) => {
+    
     let user = await SQUser.findOne({where: {username: username}});
+    console.log("Find a user");
     // 返回一个匿名类型对象
     user = user ? sanitizedUser(user) : undefined;
+    console.log(util.inspect( user));
     return user;
 }
 

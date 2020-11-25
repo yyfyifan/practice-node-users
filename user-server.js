@@ -1,5 +1,8 @@
+// a RESTful server to manage users
+
 const restify = require('restify');
 const util = require('util');
+const logger = require('morgan');
 const { SQUser,
     connectDB,
     userParams,
@@ -45,12 +48,14 @@ const server = restify.createServer({
 });
 
 // 
+server.use(logger('dev'));
 server.use(restify.plugins.authorizationParser());
-server.use(check);  // 在通过第一个中间件处理后检查是否验证成功
+// server.use(check);  // 在通过第一个中间件处理后检查是否验证成功
 server.use(restify.plugins.queryParser());
 server.use(restify.plugins.bodyParser({
     mapParams: true
 }));
+
 
 server.listen(process.env.PORT, "localhost", function () {
     log(server.name + ' listening at ' + server.url);
@@ -84,7 +89,7 @@ server.post("/create-user", async (req, res, next) => {
 server.post("/find-or-create", async (req, res, next) => {
     try {
         await connectDB();
-        let user = await findOneUser(req.params.userParams);
+        let user = await findOneUser(req.params.username);
         if (!user) {
             user = await createUser(req);
             if (!user) throw new Error("No user created");
@@ -98,3 +103,114 @@ server.post("/find-or-create", async (req, res, next) => {
     }
 })
 
+server.get("/find/:username", async (req, res, next) => {
+    try {
+        await connectDB();
+        const user = await findOneUser(req.params.username);
+        if (!user) {
+            res.send(404, new Error("Did not find " + req.params.username));
+        } else {
+            res.contentType = "json";
+            res.send(user);
+        }
+        next(false);
+    } catch (err) {
+        res.send(500, err);
+        next(false);
+    }
+});
+
+server.get("/list", async (req, res, next) => {
+    try {
+        await connectDB();
+        let userlist = await SQUser.findAll({});
+        userlist = userlist.map(user => sanitizedUser(user));
+        if (!userlist) {
+            userlist = [];
+        }
+        res.contentType = "json";
+        res.send(userlist);
+        next(false);
+    } catch (err) {
+        res.send(500, err);
+        next(false);
+    }
+});
+
+server.post("/update-user/:username", async (req, res, next) => {
+    try {
+        await connectDB();
+        let toupdate = userParams(req);
+        await SQUser.update(toupdate, {
+            where: {
+                username: req.params.username
+            }
+        });
+        const result = await findOneUser(req.params.username);
+        res.contentType = "json";
+        res.send(result);
+        next(false);
+    } catch (err) {
+        res.send(500, err);
+        next(false);
+    }
+});
+
+server.del("/destroy/:username", async (req, res, next) => {
+    try {
+        await connectDB();
+        const user = await SQUser.findOne({
+            where: {
+                username: req.params.username
+            }
+        });
+        if (!user) {
+            res.send(404, new Error("Did not find this user to delete"));
+        } else {
+            user.destroy(); // 删除
+            res.contentType = "json";
+            res.send({});
+        }
+        next(false);
+    } catch (err) {
+        res.send(500, err);
+        next(false);
+    }
+})
+
+server.post("/password-check", async (req, res, next) => {
+    try {
+        await connectDB();
+        const user = await SQUser.findOne({
+            where: {
+                username: req.params.username
+            }
+        });
+        let checked;
+        if (!user) {
+            checked = {
+                check: false,
+                username: req.params.username,
+                message: "Could not find user"
+            };
+        } else if (user.username === req.params.username && user.password === req.params.password) {
+            checked = {
+                check: true,
+                username: user.username
+            }
+        } else {
+            checked = {
+                check: false,
+                username: req.params.username,
+                message: "Incorrect password"
+            };
+        }
+        res.contentType = "json";
+        log(util.inspect(checked));
+        res.send(checked);
+        next(false);
+    } catch (err) {
+        res.send(500, err);
+        next(false);
+    }
+})

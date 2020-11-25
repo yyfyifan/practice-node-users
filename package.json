@@ -16,6 +16,7 @@
     "debug": "^4.3.1",
     "fs-extra": "^9.0.1",
     "js-yaml": "^3.14.0",
+    "morgan": "^1.10.0",
     "restify": "^8.5.1",
     "restify-clients": "^4.0.0",
     "sequelize": "^6.3.5",
